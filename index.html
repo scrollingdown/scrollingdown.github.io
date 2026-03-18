@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<title>Painel de Leads</title>
+
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+</head>
+
+<body>
+
+<h1>Painel de Leads</h1>
+
+<div class="controls">
+
+<input type="file" id="csvFile">
+
+<select id="campanhaFilter">
+<option value="">Todas campanhas</option>
+</select>
+
+<input type="date" id="dataInicio">
+<input type="date" id="dataFim">
+
+<button onclick="aplicarFiltro()">Filtrar</button>
+
+</div>
+
+<table id="tabela" class="display" style="width:100%"></table>
+
+<script>
+
+let tabela;
+let dados = [];
+
+document.getElementById("csvFile").addEventListener("change", function(e){
+
+const file = e.target.files[0];
+
+Papa.parse(file,{
+header:true,
+skipEmptyLines:true,
+complete:function(results){
+
+dados = results.data;
+
+gerarTabela(dados);
+popularCampanhas();
+
+}
+});
+
+});
+
+function gerarTabela(data){
+
+if(!data || data.length === 0){
+return;
+}
+
+if ($.fn.DataTable.isDataTable('#tabela')) {
+$('#tabela').DataTable().clear().destroy();
+$('#tabela').empty();
+}
+
+const columns = Object.keys(data[0]).map(c=>({title:c,data:c}));
+
+columns.push({
+title:"WhatsApp",
+data:null,
+render:function(row){
+
+let tel = (row.Telefone || "").replace(/\D/g,'');
+
+let msg = encodeURIComponent("Olá " + (row.Nome || ""));
+
+return `
+<button class="whatsapp-btn"
+onclick="window.open('https://wa.me/55${tel}?text=${msg}','_blank')">
+<i class="fa-brands fa-whatsapp"></i>
+</button>
+`;
+
+}
+});
+
+tabela = $('#tabela').DataTable({
+data:data,
+columns:columns,
+pageLength:25
+});
+
+}
+
+function popularCampanhas(){
+
+let campanhas = new Set();
+
+dados.forEach(d=>{
+if(d.Campanha) campanhas.add(d.Campanha);
+});
+
+const select = document.getElementById("campanhaFilter");
+
+select.innerHTML = '<option value="">Todas campanhas</option>';
+
+campanhas.forEach(c=>{
+let op = document.createElement("option");
+op.value = c;
+op.textContent = c;
+select.appendChild(op);
+});
+
+}
+
+function aplicarFiltro(){
+
+let campanha = document.getElementById("campanhaFilter").value;
+let inicio = document.getElementById("dataInicio").value;
+let fim = document.getElementById("dataFim").value;
+
+let filtrado = dados.filter(d=>{
+
+let ok = true;
+
+if(campanha && d.Campanha !== campanha){
+ok=false;
+}
+
+if(inicio && d.Data){
+if(d.Data.substring(0,10) < inicio) ok=false;
+}
+
+if(fim && d.Data){
+if(d.Data.substring(0,10) > fim) ok=false;
+}
+
+return ok;
+
+});
+
+gerarTabela(filtrado);
+
+}
+
+</script>
+
+</body>
+</html>
+
